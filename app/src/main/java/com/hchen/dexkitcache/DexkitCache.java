@@ -21,6 +21,7 @@ package com.hchen.dexkitcache;
 import android.annotation.SuppressLint;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -161,70 +162,87 @@ public class DexkitCache {
     /**
      * 查找成员
      *
-     * @param key     此缓存的唯一 key
+     * @param key     此缓存的唯一 key，如果为 null 则不启用缓存
      * @param iDexkit dexkit 查找接口
      * @return 返回查找到的成员，可能是 Class、Method、Field
      */
     @NonNull
-    public static <T> T findMember(@NonNull String key, @NonNull IDexkit iDexkit) {
+    public static <T> T findMember(@Nullable String key, @NonNull IDexkit iDexkit) {
         return findMember(key, classLoader, iDexkit);
     }
 
     /**
      * 查找成员
      *
-     * @param key         此缓存的唯一 key
+     * @param key         此缓存的唯一 key，如果为 null 则不启用缓存
      * @param classLoader 指定类加载器，用于加载查找到的实例
      * @param iDexkit     dexkit 查找接口
      * @return 返回查找到的成员，可能是 Class、Method、Field
      * @noinspection IfCanBeSwitch
      */
     @NonNull
-    public static <T> T findMember(@NonNull String key, ClassLoader classLoader, @NonNull IDexkit iDexkit) {
+    public static <T> T findMember(@Nullable String key, ClassLoader classLoader, @NonNull IDexkit iDexkit) {
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
-        String cacheData = mmkv.getString(key, "");
-        if (cacheData.isEmpty()) {
+        if (key == null) {
             try {
                 BaseData baseData = iDexkit.dexkit(dexKitBridge);
-                if (baseData instanceof ClassData classData) {
-                    mmkv.putString(key, gson.toJson(new MemberData(TYPE_CLASS, classData.toDexType().serialize())));
+                if (baseData instanceof ClassData classData)
                     return (T) classData.getInstance(classLoader);
-                } else if (baseData instanceof MethodData methodData) {
-                    mmkv.putString(key, gson.toJson(new MemberData(TYPE_METHOD, methodData.toDexMethod().serialize())));
+                else if (baseData instanceof MethodData methodData)
                     return (T) methodData.getMethodInstance(classLoader);
-                } else if (baseData instanceof FieldData fieldData) {
-                    mmkv.putString(key, gson.toJson(new MemberData(TYPE_FIELD, fieldData.toDexField().serialize())));
+                else if (baseData instanceof FieldData fieldData)
                     return (T) fieldData.getFieldInstance(classLoader);
-                } else {
-                    throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseData);
-                }
+                else
+                    throw new UnexpectedException("[DexkitCache]: Unknown BaseData Type: " + baseData);
             } catch (ReflectiveOperationException e) {
-                ;
                 throw new UnexpectedException(e);
             } finally {
                 close();
             }
         } else {
-            MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
-            }.getType());
-            try {
-                switch (data.type) {
-                    case TYPE_CLASS -> {
-                        return (T) new DexClass(data.serialize).getInstance(classLoader);
+            String cacheData = mmkv.getString(key, "");
+            if (cacheData.isEmpty()) {
+                try {
+                    BaseData baseData = iDexkit.dexkit(dexKitBridge);
+                    if (baseData instanceof ClassData classData) {
+                        mmkv.putString(key, gson.toJson(new MemberData(TYPE_CLASS, classData.toDexType().serialize())));
+                        return (T) classData.getInstance(classLoader);
+                    } else if (baseData instanceof MethodData methodData) {
+                        mmkv.putString(key, gson.toJson(new MemberData(TYPE_METHOD, methodData.toDexMethod().serialize())));
+                        return (T) methodData.getMethodInstance(classLoader);
+                    } else if (baseData instanceof FieldData fieldData) {
+                        mmkv.putString(key, gson.toJson(new MemberData(TYPE_FIELD, fieldData.toDexField().serialize())));
+                        return (T) fieldData.getFieldInstance(classLoader);
+                    } else {
+                        throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseData);
                     }
-                    case TYPE_METHOD -> {
-                        return (T) new DexMethod(data.serialize).getMethodInstance(classLoader);
-                    }
-                    case TYPE_FIELD -> {
-                        return (T) new DexField(data.serialize).getFieldInstance(classLoader);
-                    }
-                    case null, default ->
-                        throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
+                } catch (ReflectiveOperationException e) {
+                    throw new UnexpectedException(e);
+                } finally {
+                    close();
                 }
-            } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException e) {
-                throw new UnexpectedException(e);
-            } finally {
-                close();
+            } else {
+                MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
+                }.getType());
+                try {
+                    switch (data.type) {
+                        case TYPE_CLASS -> {
+                            return (T) new DexClass(data.serialize).getInstance(classLoader);
+                        }
+                        case TYPE_METHOD -> {
+                            return (T) new DexMethod(data.serialize).getMethodInstance(classLoader);
+                        }
+                        case TYPE_FIELD -> {
+                            return (T) new DexField(data.serialize).getFieldInstance(classLoader);
+                        }
+                        case null, default ->
+                            throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
+                    }
+                } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException e) {
+                    throw new UnexpectedException(e);
+                } finally {
+                    close();
+                }
             }
         }
     }
@@ -232,89 +250,115 @@ public class DexkitCache {
     /**
      * 查找成员，列表类型
      *
-     * @param key         此缓存的唯一 key
+     * @param key         此缓存的唯一 key，如果为 null 则不启用缓存
      * @param iDexKitList dexkit 查找接口
      * @return 返回一个列表，可能包含 Class、Method、Field 中的一种类型
      */
     @NonNull
-    public static <T> List<T> findMemberList(@NonNull String key, @NonNull IDexkitList iDexKitList) {
+    public static <T> T[] findMemberList(@Nullable String key, @NonNull IDexkitList iDexKitList) {
         return findMemberList(key, classLoader, iDexKitList);
     }
 
     /**
      * 查找成员，列表类型
      *
-     * @param key         此缓存的唯一 key
+     * @param key         此缓存的唯一 key，如果为 null 则不启用缓存
      * @param classLoader 指定类加载器，用于加载查找到的实例
      * @param iDexKitList dexkit 查找接口
      * @return 返回一个列表，可能包含 Class、Method、Field 中的一种类型
      * @noinspection IfCanBeSwitch, unchecked
      */
     @NonNull
-    public static <T> List<T> findMemberList(@NonNull String key, ClassLoader classLoader, @NonNull IDexkitList iDexKitList) {
+    public static <T> T[] findMemberList(@Nullable String key, ClassLoader classLoader, @NonNull IDexkitList iDexKitList) {
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
-        String cacheData = mmkv.getString(key, "");
-        if (cacheData.isEmpty()) {
+        if (key == null) {
             try {
-                BaseDataList<?> baseDataList = iDexKitList.dexkit(dexKitBridge);
-                ArrayList<String> serializeList = new ArrayList<>();
-                List<?> data = baseDataList.stream().map((Function<Object, Object>) baseData -> {
+                return (T[]) iDexKitList.dexkit(dexKitBridge).stream().map((Function<Object, Object>) baseData -> {
                     try {
-                        if (baseData instanceof ClassData classData) {
-                            serializeList.add(classData.toDexType().serialize());
+                        if (baseData instanceof ClassData classData)
                             return classData.getInstance(classLoader);
-                        } else if (baseData instanceof MethodData methodData) {
-                            serializeList.add(methodData.toDexMethod().serialize());
+                        else if (baseData instanceof MethodData methodData)
                             return methodData.getMethodInstance(classLoader);
-                        } else if (baseData instanceof FieldData fieldData) {
-                            serializeList.add(fieldData.toDexField().serialize());
+                        else if (baseData instanceof FieldData fieldData)
                             return fieldData.getFieldInstance(classLoader);
-                        } else
+                        else
                             throw new UnexpectedException("[DexkitCache]: Unknown BaseData Type: " + baseData);
-                    } catch (NoSuchFieldException | NoSuchMethodException |
-                             ClassNotFoundException e) {
+                    } catch (ClassNotFoundException | NoSuchMethodException |
+                             NoSuchFieldException e) {
                         throw new UnexpectedException(e);
                     } finally {
                         close();
                     }
-                }).collect(Collectors.toCollection(ArrayList::new));
-                if (baseDataList instanceof FieldDataList)
-                    mmkv.putString(key, gson.toJson(new MemberData(TYPE_FIELD, serializeList)));
-                else if (baseDataList instanceof MethodDataList)
-                    mmkv.putString(key, gson.toJson(new MemberData(TYPE_METHOD, serializeList)));
-                else if (baseDataList instanceof ClassDataList)
-                    mmkv.putString(key, gson.toJson(new MemberData(TYPE_CLASS, serializeList)));
-                return (List<T>) data;
+                }).toArray();
             } catch (ReflectiveOperationException e) {
                 throw new UnexpectedException(e);
             } finally {
                 close();
             }
         } else {
-            MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
-            }.getType());
-            return (List<T>) data.serializeList.stream().map((Function<String, Object>) descriptor -> {
+            String cacheData = mmkv.getString(key, "");
+            if (cacheData.isEmpty()) {
                 try {
-                    switch (data.type) {
-                        case TYPE_CLASS -> {
-                            return new DexClass(descriptor).getInstance(classLoader);
+                    BaseDataList<?> baseDataList = iDexKitList.dexkit(dexKitBridge);
+                    ArrayList<String> serializeList = new ArrayList<>();
+                    List<?> data = baseDataList.stream().map((Function<Object, Object>) baseData -> {
+                        try {
+                            if (baseData instanceof ClassData classData) {
+                                serializeList.add(classData.toDexType().serialize());
+                                return classData.getInstance(classLoader);
+                            } else if (baseData instanceof MethodData methodData) {
+                                serializeList.add(methodData.toDexMethod().serialize());
+                                return methodData.getMethodInstance(classLoader);
+                            } else if (baseData instanceof FieldData fieldData) {
+                                serializeList.add(fieldData.toDexField().serialize());
+                                return fieldData.getFieldInstance(classLoader);
+                            } else
+                                throw new UnexpectedException("[DexkitCache]: Unknown BaseData Type: " + baseData);
+                        } catch (NoSuchFieldException | NoSuchMethodException |
+                                 ClassNotFoundException e) {
+                            throw new UnexpectedException(e);
+                        } finally {
+                            close();
                         }
-                        case TYPE_METHOD -> {
-                            return new DexMethod(descriptor).getMethodInstance(classLoader);
-                        }
-                        case TYPE_FIELD -> {
-                            return new DexField(descriptor).getFieldInstance(classLoader);
-                        }
-                        case null, default ->
-                            throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
-                    }
-                } catch (ClassNotFoundException | NoSuchMethodException |
-                         NoSuchFieldException e) {
+                    }).collect(Collectors.toCollection(ArrayList::new));
+                    if (baseDataList instanceof FieldDataList)
+                        mmkv.putString(key, gson.toJson(new MemberData(TYPE_FIELD, serializeList)));
+                    else if (baseDataList instanceof MethodDataList)
+                        mmkv.putString(key, gson.toJson(new MemberData(TYPE_METHOD, serializeList)));
+                    else if (baseDataList instanceof ClassDataList)
+                        mmkv.putString(key, gson.toJson(new MemberData(TYPE_CLASS, serializeList)));
+                    return (T[]) data.toArray();
+                } catch (ReflectiveOperationException e) {
                     throw new UnexpectedException(e);
                 } finally {
                     close();
                 }
-            }).collect(Collectors.toCollection(ArrayList::new));
+            } else {
+                MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
+                }.getType());
+                return (T[]) data.serializeList.stream().map((Function<String, Object>) descriptor -> {
+                    try {
+                        switch (data.type) {
+                            case TYPE_CLASS -> {
+                                return new DexClass(descriptor).getInstance(classLoader);
+                            }
+                            case TYPE_METHOD -> {
+                                return new DexMethod(descriptor).getMethodInstance(classLoader);
+                            }
+                            case TYPE_FIELD -> {
+                                return new DexField(descriptor).getFieldInstance(classLoader);
+                            }
+                            case null, default ->
+                                throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
+                        }
+                    } catch (ClassNotFoundException | NoSuchMethodException |
+                             NoSuchFieldException e) {
+                        throw new UnexpectedException(e);
+                    } finally {
+                        close();
+                    }
+                }).toArray();
+            }
         }
     }
 
