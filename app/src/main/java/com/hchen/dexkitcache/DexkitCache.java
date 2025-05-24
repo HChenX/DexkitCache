@@ -235,7 +235,7 @@ public class DexkitCache {
                         case TYPE_FIELD -> {
                             return (T) new DexField(data.serialize).getFieldInstance(classLoader);
                         }
-                        case null, default ->
+                        default ->
                             throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
                     }
                 } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException e) {
@@ -348,7 +348,7 @@ public class DexkitCache {
                             case TYPE_FIELD -> {
                                 return new DexField(descriptor).getFieldInstance(classLoader);
                             }
-                            case null, default ->
+                            default ->
                                 throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
                         }
                     } catch (ClassNotFoundException | NoSuchMethodException |
