@@ -340,8 +340,6 @@ public class DexkitCache {
                     } catch (ClassNotFoundException | NoSuchMethodException |
                              NoSuchFieldException e) {
                         throw new UnexpectedException(e);
-                    } finally {
-
                     }
                 }).toArray();
             }
