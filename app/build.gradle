@@ -1,0 +1,81 @@
+plugins {
+    alias(libs.plugins.android.library)
+    id 'maven-publish'
+}
+
+def defVersion = 'v.0.1'
+int defVersionCode = 2025052300
+
+group = 'com.github.HChenX'
+version = defVersion
+
+android {
+    namespace 'com.hchen.dexkitcache'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 26
+        targetSdk 35
+        versionCode defVersionCode
+        versionName defVersion
+
+        aarMetadata {
+            minCompileSdk = 26
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            consumerProguardFiles 'proguard-rules.pro'
+        }
+
+        debug {
+            minifyEnabled false
+            consumerProguardFiles 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+tasks.register('androidSourcesJar', Jar) {
+    from android.sourceSets.main.java.srcDirs
+}
+
+dependencies {
+    implementation libs.annotation
+    implementation libs.dexkit
+    implementation libs.gson
+    implementation libs.mmkv
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                from components.release
+                groupId = 'com.github.HChenX'
+                artifactId = 'DexkitCache'
+                version = defVersion
+
+                artifact androidSourcesJar
+            }
+        }
+    }
+}

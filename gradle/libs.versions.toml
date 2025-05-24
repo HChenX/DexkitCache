@@ -1,0 +1,17 @@
+[versions]
+agp = "8.10.0"
+annotation = "1.9.1"
+dexkit = "2.0.4"
+mmkv = "2.2.2"
+gson = "2.13.1"
+
+[libraries]
+annotation = { module = "androidx.annotation:annotation-jvm", version.ref = "annotation" }
+dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+
