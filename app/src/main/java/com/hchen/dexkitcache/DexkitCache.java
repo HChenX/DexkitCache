@@ -46,11 +46,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Dexkit 缓存构建与解析工具
@@ -106,12 +104,9 @@ public class DexkitCache {
     }
 
     @NonNull
-    private static DexKitBridge createDexkitBridge() {
-        return createDexkitBridge(null);
-    }
-
-    @NonNull
-    private static DexKitBridge createDexkitBridge(ClassLoader classLoader) {
+    private static DexKitBridge createDexkitBridge(@NonNull ClassLoader classLoader) {
+        if (Objects.isNull(classLoader))
+            throw new NullPointerException("[DexkitCache]: ClassLoader can't be null!");
         if (Objects.isNull(sourceDir))
             throw new NullPointerException("[DexkitCache]: Source dir can't be null!");
         if (Objects.isNull(dataDir))
@@ -134,7 +129,7 @@ public class DexkitCache {
             }
         } else mmkv.putInt(KEY_VERSION, DexkitCache.version);
 
-        String packageInfo = PackageHelper.getPackageVersionName(sourceDir) + "(" + PackageHelper.getPackageVersionCode(sourceDir) + ")";
+        String packageInfo = PackageHelper.getPackageVersionName() + "(" + PackageHelper.getPackageVersionCode() + ")";
         if (mmkv.containsKey(KEY_PACKAGE_INFO)) {
             String oldInfo = mmkv.getString(KEY_PACKAGE_INFO, "unknown");
             if (!Objects.equals(packageInfo, oldInfo)) {
@@ -153,8 +148,7 @@ public class DexkitCache {
         } else mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
 
         System.loadLibrary("dexkit");
-        if (classLoader == null) dexKitBridge = DexKitBridge.create(sourceDir);
-        else dexKitBridge = DexKitBridge.create(classLoader, false);
+        dexKitBridge = DexKitBridge.create(classLoader, false);
 
         return dexKitBridge;
     }
@@ -181,7 +175,8 @@ public class DexkitCache {
      * @noinspection IfCanBeSwitch
      */
     @NonNull
-    public static <T> T findMember(@Nullable String key, ClassLoader classLoader, @NonNull IDexkit iDexkit) {
+    public static <T> T findMember(@Nullable String key, @NonNull ClassLoader classLoader, @NonNull IDexkit iDexkit) {
+        autoReloadIfNeed(classLoader);
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
         if (key == null) {
             try {
@@ -193,7 +188,7 @@ public class DexkitCache {
                 else if (baseData instanceof FieldData fieldData)
                     return (T) fieldData.getFieldInstance(classLoader);
                 else
-                    throw new UnexpectedException("[DexkitCache]: Unknown BaseData Type: " + baseData);
+                    throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseData);
             } catch (ReflectiveOperationException e) {
                 throw new UnexpectedException(e);
             } finally {
@@ -269,7 +264,8 @@ public class DexkitCache {
      * @noinspection IfCanBeSwitch, unchecked
      */
     @NonNull
-    public static <T> T[] findMemberList(@Nullable String key, ClassLoader classLoader, @NonNull IDexkitList iDexKitList) {
+    public static <T> T[] findMemberList(@Nullable String key, @NonNull ClassLoader classLoader, @NonNull IDexkitList iDexKitList) {
+        autoReloadIfNeed(classLoader);
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
         if (key == null) {
             try {
@@ -282,7 +278,7 @@ public class DexkitCache {
                         else if (baseData instanceof FieldData fieldData)
                             return fieldData.getFieldInstance(classLoader);
                         else
-                            throw new UnexpectedException("[DexkitCache]: Unknown BaseData Type: " + baseData);
+                            throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseData);
                     } catch (ClassNotFoundException | NoSuchMethodException |
                              NoSuchFieldException e) {
                         throw new UnexpectedException(e);
@@ -301,7 +297,7 @@ public class DexkitCache {
                 try {
                     BaseDataList<?> baseDataList = iDexKitList.dexkit(dexKitBridge);
                     ArrayList<String> serializeList = new ArrayList<>();
-                    List<?> data = baseDataList.stream().map((Function<Object, Object>) baseData -> {
+                    T[] data = (T[]) baseDataList.stream().map((Function<Object, Object>) baseData -> {
                         try {
                             if (baseData instanceof ClassData classData) {
                                 serializeList.add(classData.toDexType().serialize());
@@ -320,14 +316,14 @@ public class DexkitCache {
                         } finally {
                             close();
                         }
-                    }).collect(Collectors.toCollection(ArrayList::new));
+                    }).toArray();
                     if (baseDataList instanceof FieldDataList)
                         mmkv.putString(key, gson.toJson(new MemberData(TYPE_FIELD, serializeList)));
                     else if (baseDataList instanceof MethodDataList)
                         mmkv.putString(key, gson.toJson(new MemberData(TYPE_METHOD, serializeList)));
                     else if (baseDataList instanceof ClassDataList)
                         mmkv.putString(key, gson.toJson(new MemberData(TYPE_CLASS, serializeList)));
-                    return (T[]) data.toArray();
+                    return data;
                 } catch (ReflectiveOperationException e) {
                     throw new UnexpectedException(e);
                 } finally {
@@ -376,18 +372,25 @@ public class DexkitCache {
         gson = null;
     }
 
+    private static void autoReloadIfNeed(@NonNull ClassLoader classLoader) {
+        if (!Objects.equals(DexkitCache.classLoader, classLoader)) {
+            DexkitCache.classLoader = classLoader;
+            close();
+        }
+    }
+
     private static final class MemberData {
         @NonNull
         public String type;
         public String serialize = "";
         public ArrayList<String> serializeList = new ArrayList<>();
 
-        public MemberData(@NonNull String type, String serialize) {
+        public MemberData(@NonNull String type, @NonNull String serialize) {
             this.type = type;
             this.serialize = serialize;
         }
 
-        public MemberData(@NonNull String type, ArrayList<String> serializeList) {
+        public MemberData(@NonNull String type, @NonNull ArrayList<String> serializeList) {
             this.type = type;
             this.serializeList = serializeList;
         }
@@ -417,18 +420,25 @@ public class DexkitCache {
     }
 
     private static class PackageHelper {
-        private static final Method parsePackageMethod;
-        private static final Object packageParser;
+        private static final Object pkg;
+        private static final Field mVersionNameField;
+        private static final Field mVersionCodeField;
 
         static {
             try {
                 @SuppressLint("PrivateApi")
                 Class<?> packageParserClass = Class.forName("android.content.pm.PackageParser");
-                parsePackageMethod = packageParserClass.getDeclaredMethod("parsePackage", File.class, int.class);
+                Method parsePackageMethod = packageParserClass.getDeclaredMethod("parsePackage", File.class, int.class);
                 parsePackageMethod.setAccessible(true);
-                packageParser = packageParserClass.getDeclaredConstructor().newInstance();
+                Object packageParser = packageParserClass.getDeclaredConstructor().newInstance();
+                pkg = parsePackageMethod.invoke(packageParser, new File(sourceDir), 0);
+                assert pkg != null;
+                mVersionNameField = pkg.getClass().getDeclaredField("mVersionName");
+                mVersionNameField.setAccessible(true);
+                mVersionCodeField = pkg.getClass().getDeclaredField("mVersionCode");
+                mVersionCodeField.setAccessible(true);
             } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |
-                     InstantiationException | InvocationTargetException e) {
+                     InstantiationException | InvocationTargetException | NoSuchFieldException e) {
                 throw new UnexpectedException(e);
             } finally {
                 close();
@@ -436,30 +446,20 @@ public class DexkitCache {
         }
 
         @NonNull
-        public static String getPackageVersionName(@NonNull String sourceDir) {
+        public static String getPackageVersionName() {
             try {
-                File apkPath = new File(sourceDir);
-                Object pkg = parsePackageMethod.invoke(packageParser, apkPath, 0);
-                assert pkg != null;
-                Field mVersionNameField = pkg.getClass().getDeclaredField("mVersionName");
-                mVersionNameField.setAccessible(true);
                 return ((String) Optional.ofNullable(mVersionNameField.get(pkg)).orElse("unknown")).trim();
-            } catch (IllegalAccessException | InvocationTargetException | NoSuchFieldException e) {
+            } catch (IllegalAccessException e) {
                 throw new UnexpectedException(e);
             } finally {
                 close();
             }
         }
 
-        public static int getPackageVersionCode(@NonNull String sourceDir) {
+        public static int getPackageVersionCode() {
             try {
-                File apkPath = new File(sourceDir);
-                Object pkg = parsePackageMethod.invoke(packageParser, apkPath, 0);
-                assert pkg != null;
-                Field mVersionCodeField = pkg.getClass().getDeclaredField("mVersionCode");
-                mVersionCodeField.setAccessible(true);
                 return (int) Optional.ofNullable(mVersionCodeField.get(pkg)).orElse(-1);
-            } catch (IllegalAccessException | InvocationTargetException | NoSuchFieldException e) {
+            } catch (IllegalAccessException e) {
                 throw new UnexpectedException(e);
             } finally {
                 close();
