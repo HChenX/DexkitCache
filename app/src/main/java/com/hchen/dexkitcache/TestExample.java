@@ -42,7 +42,7 @@ final class TestExample {
         ClassLoader classLoader = null; // 当前的 classloader，不要传 null，仅演示
         String sourceDir = null; // 软件 apk 目录
         String dataDir = null; // 软件数据目录
-        DexkitCache.init(classLoader, sourceDir, dataDir); // 初始化工具
+        DexkitCache.init("test_cache", classLoader, sourceDir, dataDir); // 初始化工具
     }
 
     public void use() {

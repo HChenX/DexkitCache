@@ -58,13 +58,14 @@ import java.util.function.Function;
  */
 public class DexkitCache {
     private static final String TAG = "DexkitCache";
-    private static final String MMKV_PATH = "/files/hchen/dexkit_cache/mmkv";
+    private static final String MMKV_PATH = "/files/hchen/dexkit_cache";
     private static final String KEY_VERSION = "version";
     private static final String KEY_PACKAGE_INFO = "package_info";
     private static final String KEY_SYSTEM_VERSION = "system_version";
     private static final String TYPE_METHOD = "METHOD";
     private static final String TYPE_CLASS = "CLASS";
     private static final String TYPE_FIELD = "FIELD";
+    private static String cacheName = "dexkit_cache";
     private static int version = 1;
     private static ClassLoader classLoader;
     private static String sourceDir = null;
@@ -80,23 +81,26 @@ public class DexkitCache {
     /**
      * 初始化 Dexkit 缓存工具
      *
+     * @param cacheName   缓存文件名称
      * @param classLoader 类加载器
      * @param sourceDir   apk 路径
      * @param dataDir     apk 数据目录
      */
-    public static void init(@NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir) {
-        init(classLoader, sourceDir, dataDir, 1);
+    public static void init(@NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir) {
+        init(cacheName, classLoader, sourceDir, dataDir, 1);
     }
 
     /**
      * 初始化 Dexkit 缓存工具
      *
+     * @param cacheName   缓存文件名称
      * @param classLoader 类加载器
      * @param sourceDir   apk 路径
      * @param dataDir     apk 数据目录
      * @param version     当前使用的缓存版本，请注意不同版本会导致所有缓存被删除
      */
-    public static void init(@NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir, int version) {
+    public static void init(@NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir, int version) {
+        DexkitCache.cacheName = cacheName;
         DexkitCache.classLoader = classLoader;
         DexkitCache.sourceDir = sourceDir;
         DexkitCache.dataDir = dataDir;
@@ -120,7 +124,7 @@ public class DexkitCache {
         mmkvPath = dataDir + MMKV_PATH;
         gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
         MMKV.initialize(mmkvPath, System::loadLibrary);
-        mmkv = MMKV.mmkvWithID("dexkit_cache", MMKV.MULTI_PROCESS_MODE);
+        mmkv = MMKV.mmkvWithID(cacheName, MMKV.MULTI_PROCESS_MODE);
         if (mmkv.containsKey(KEY_VERSION)) {
             int version = mmkv.getInt(KEY_VERSION, 1);
             if (version != DexkitCache.version) {
@@ -191,8 +195,6 @@ public class DexkitCache {
                     throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseData);
             } catch (ReflectiveOperationException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         } else {
             String cacheData = mmkv.getString(key, "");
@@ -213,8 +215,6 @@ public class DexkitCache {
                     }
                 } catch (ReflectiveOperationException e) {
                     throw new UnexpectedException(e);
-                } finally {
-                    close();
                 }
             } else {
                 MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
@@ -235,8 +235,6 @@ public class DexkitCache {
                     }
                 } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException e) {
                     throw new UnexpectedException(e);
-                } finally {
-                    close();
                 }
             }
         }
@@ -282,14 +280,10 @@ public class DexkitCache {
                     } catch (ClassNotFoundException | NoSuchMethodException |
                              NoSuchFieldException e) {
                         throw new UnexpectedException(e);
-                    } finally {
-                        close();
                     }
                 }).toArray();
             } catch (ReflectiveOperationException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         } else {
             String cacheData = mmkv.getString(key, "");
@@ -313,8 +307,6 @@ public class DexkitCache {
                         } catch (NoSuchFieldException | NoSuchMethodException |
                                  ClassNotFoundException e) {
                             throw new UnexpectedException(e);
-                        } finally {
-                            close();
                         }
                     }).toArray();
                     if (baseDataList instanceof FieldDataList)
@@ -326,8 +318,6 @@ public class DexkitCache {
                     return data;
                 } catch (ReflectiveOperationException e) {
                     throw new UnexpectedException(e);
-                } finally {
-                    close();
                 }
             } else {
                 MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
@@ -351,7 +341,7 @@ public class DexkitCache {
                              NoSuchFieldException e) {
                         throw new UnexpectedException(e);
                     } finally {
-                        close();
+
                     }
                 }).toArray();
             }
@@ -360,6 +350,10 @@ public class DexkitCache {
 
     /**
      * 关闭 Dexkit，并清理资源
+     * <p>
+     * 强烈建议在 try-catch-finally 中的 finally 块中调用！
+     * <p>
+     * 尽量避免 dexkit 在使用后未被关闭！
      */
     public static void close() {
         if (Objects.nonNull(dexKitBridge))
@@ -440,8 +434,6 @@ public class DexkitCache {
             } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |
                      InstantiationException | InvocationTargetException | NoSuchFieldException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         }
 
@@ -451,8 +443,6 @@ public class DexkitCache {
                 return ((String) Optional.ofNullable(mVersionNameField.get(pkg)).orElse("unknown")).trim();
             } catch (IllegalAccessException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         }
 
@@ -461,8 +451,6 @@ public class DexkitCache {
                 return (int) Optional.ofNullable(mVersionCodeField.get(pkg)).orElse(-1);
             } catch (IllegalAccessException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         }
     }
@@ -478,8 +466,6 @@ public class DexkitCache {
                 method.setAccessible(true);
             } catch (ClassNotFoundException | NoSuchMethodException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         }
 
@@ -488,8 +474,6 @@ public class DexkitCache {
                 return (String) method.invoke(null, key);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new UnexpectedException(e);
-            } finally {
-                close();
             }
         }
     }
