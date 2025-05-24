@@ -35,7 +35,7 @@ dependencyResolutionManagement {
 }
 
 dependencies {
-    implementation 'com.github.HChenX:DexkitCache:0.2' // 引入依赖
+    implementation 'com.github.HChenX:DexkitCache:0.4' // 引入依赖
     implementation 'org.luckypray:dexkit:XX' // dexkit
     implementation 'com.tencent:mmkv:XX' // 缓存储存工具
     implementation 'com.google.code.gson:gson:XX' // 缓存序列化与反序列化工具
@@ -96,7 +96,7 @@ public class Test {
 }
 ```
 
-- 几句简单代码即可实现！
+- 几句简单代码即可实现 Dexkit 缓存的构建与解析！
 
 ---
 
