@@ -35,10 +35,12 @@ dependencyResolutionManagement {
 }
 
 dependencies {
-    implementation 'com.github.HChenX:DexkitCache:0.4' // 引入依赖
-    implementation 'org.luckypray:dexkit:XX' // dexkit
-    implementation 'com.tencent:mmkv:XX' // 缓存储存工具
-    implementation 'com.google.code.gson:gson:XX' // 缓存序列化与反序列化工具
+    implementation 'com.github.HChenX:DexkitCache:0.5' // 引入依赖
+
+    // 下列依赖的版本号仅是示例，请按照实际需求填写
+    implementation 'org.luckypray:dexkit:2.0.4' // dexkit
+    implementation 'com.tencent:mmkv:2.2.2' // 缓存储存工具
+    implementation 'com.google.code.gson:gson:2.13.1' // 缓存序列化与反序列化工具
 }
 ```
 
