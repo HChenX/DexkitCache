@@ -105,8 +105,7 @@ public class Test {
 ## 🌟 混淆配置
 
 ```text
-// 一般可以不配置
--keep class com.hchen.dexkitcache.* {*;}
+-keep class com.hchen.dexkitcache.DexkitCache$MemberData {*;}
 ```
 
 ---
