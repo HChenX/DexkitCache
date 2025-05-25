@@ -42,6 +42,7 @@ import org.luckypray.dexkit.wrap.DexField;
 import org.luckypray.dexkit.wrap.DexMethod;
 
 import java.io.File;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -105,6 +106,14 @@ public class DexkitCache {
         DexkitCache.sourceDir = sourceDir;
         DexkitCache.dataDir = dataDir;
         DexkitCache.version = version;
+    }
+
+    /**
+     * 更换新的类加载器
+     */
+    public static void setClassLoader(@NonNull ClassLoader classLoader) {
+        DexkitCache.classLoader = classLoader;
+        autoReloadIfNeed(classLoader);
     }
 
     @NonNull
@@ -262,26 +271,36 @@ public class DexkitCache {
      * @noinspection IfCanBeSwitch, unchecked
      */
     @NonNull
+    @SuppressLint("NonUniqueDexKitData")
     public static <T> T[] findMemberList(@Nullable String key, @NonNull ClassLoader classLoader, @NonNull IDexkitList iDexKitList) {
         autoReloadIfNeed(classLoader);
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
+        var ref = new Object() {
+            volatile Class<?> type = null;
+        };
         if (key == null) {
             try {
-                return (T[]) iDexKitList.dexkit(dexKitBridge).stream().map((Function<Object, Object>) baseData -> {
+                BaseDataList<?> baseDataList = iDexKitList.dexkit(dexKitBridge);
+                if (baseDataList.first() instanceof ClassData) ref.type = Class.class;
+                else if (baseDataList.first() instanceof MethodData) ref.type = Method.class;
+                else if (baseDataList.first() instanceof FieldData) ref.type = Field.class;
+                else
+                    throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseDataList.first());
+                return baseDataList.stream().map((Function<Object, T>) baseData -> {
                     try {
-                        if (baseData instanceof ClassData classData)
-                            return classData.getInstance(classLoader);
-                        else if (baseData instanceof MethodData methodData)
-                            return methodData.getMethodInstance(classLoader);
-                        else if (baseData instanceof FieldData fieldData)
-                            return fieldData.getFieldInstance(classLoader);
-                        else
+                        if (baseData instanceof ClassData classData) {
+                            return (T) classData.getInstance(classLoader);
+                        } else if (baseData instanceof MethodData methodData) {
+                            return (T) methodData.getMethodInstance(classLoader);
+                        } else if (baseData instanceof FieldData fieldData) {
+                            return (T) fieldData.getFieldInstance(classLoader);
+                        } else
                             throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseData);
                     } catch (ClassNotFoundException | NoSuchMethodException |
                              NoSuchFieldException e) {
                         throw new UnexpectedException(e);
                     }
-                }).toArray();
+                }).toArray(value -> (T[]) Array.newInstance(ref.type, value));
             } catch (ReflectiveOperationException e) {
                 throw new UnexpectedException(e);
             }
@@ -291,24 +310,29 @@ public class DexkitCache {
                 try {
                     BaseDataList<?> baseDataList = iDexKitList.dexkit(dexKitBridge);
                     ArrayList<String> serializeList = new ArrayList<>();
-                    T[] data = (T[]) baseDataList.stream().map((Function<Object, Object>) baseData -> {
+                    if (baseDataList.first() instanceof ClassData) ref.type = Class.class;
+                    else if (baseDataList.first() instanceof MethodData) ref.type = Method.class;
+                    else if (baseDataList.first() instanceof FieldData) ref.type = Field.class;
+                    else
+                        throw new UnexpectedException("[DexkitCache]: Unknown BaseData type: " + baseDataList.first());
+                    T[] data = baseDataList.stream().map((Function<Object, T>) baseData -> {
                         try {
                             if (baseData instanceof ClassData classData) {
                                 serializeList.add(classData.toDexType().serialize());
-                                return classData.getInstance(classLoader);
+                                return (T) classData.getInstance(classLoader);
                             } else if (baseData instanceof MethodData methodData) {
                                 serializeList.add(methodData.toDexMethod().serialize());
-                                return methodData.getMethodInstance(classLoader);
+                                return (T) methodData.getMethodInstance(classLoader);
                             } else if (baseData instanceof FieldData fieldData) {
                                 serializeList.add(fieldData.toDexField().serialize());
-                                return fieldData.getFieldInstance(classLoader);
+                                return (T) fieldData.getFieldInstance(classLoader);
                             } else
                                 throw new UnexpectedException("[DexkitCache]: Unknown BaseData Type: " + baseData);
                         } catch (NoSuchFieldException | NoSuchMethodException |
                                  ClassNotFoundException e) {
                             throw new UnexpectedException(e);
                         }
-                    }).toArray();
+                    }).toArray(value -> (T[]) Array.newInstance(ref.type, value));
                     if (baseDataList instanceof FieldDataList)
                         mmkv.putString(key, gson.toJson(new MemberData(TYPE_FIELD, serializeList)));
                     else if (baseDataList instanceof MethodDataList)
@@ -322,17 +346,22 @@ public class DexkitCache {
             } else {
                 MemberData data = gson.fromJson(cacheData, new TypeToken<MemberData>() {
                 }.getType());
-                return (T[]) data.serializeList.stream().map((Function<String, Object>) descriptor -> {
+                if (TYPE_CLASS.equals(data.type)) ref.type = Class.class;
+                else if (TYPE_METHOD.equals(data.type)) ref.type = Method.class;
+                else if (TYPE_FIELD.equals(data.type)) ref.type = Field.class;
+                else
+                    throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
+                return data.serializeList.stream().map(descriptor -> {
                     try {
                         switch (data.type) {
                             case TYPE_CLASS -> {
-                                return new DexClass(descriptor).getInstance(classLoader);
+                                return (T) new DexClass(descriptor).getInstance(classLoader);
                             }
                             case TYPE_METHOD -> {
-                                return new DexMethod(descriptor).getMethodInstance(classLoader);
+                                return (T) new DexMethod(descriptor).getMethodInstance(classLoader);
                             }
                             case TYPE_FIELD -> {
-                                return new DexField(descriptor).getFieldInstance(classLoader);
+                                return (T) new DexField(descriptor).getFieldInstance(classLoader);
                             }
                             default ->
                                 throw new UnexpectedException("[DexkitCache]: Unknown MemberData type: " + data);
@@ -341,7 +370,7 @@ public class DexkitCache {
                              NoSuchFieldException e) {
                         throw new UnexpectedException(e);
                     }
-                }).toArray();
+                }).toArray(value -> (T[]) Array.newInstance(ref.type, value));
             }
         }
     }
