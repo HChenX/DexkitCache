@@ -35,7 +35,7 @@ dependencyResolutionManagement {
 }
 
 dependencies {
-    implementation 'com.github.HChenX:DexkitCache:v.0.6' // 引入依赖
+    implementation 'com.github.HChenX:DexkitCache:v.0.7' // 引入依赖
 
     // 下列依赖的版本号仅是示例，请按照实际需求填写
     implementation 'org.luckypray:dexkit:2.0.4' // dexkit

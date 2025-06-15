@@ -23,7 +23,7 @@ package com.hchen.dexkitcache;
  *
  * @author 焕晨HChen
  */
-class UnexpectedException extends RuntimeException {
+public class UnexpectedException extends RuntimeException {
     public UnexpectedException() {
         super();
     }

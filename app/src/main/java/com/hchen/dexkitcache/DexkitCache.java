@@ -19,6 +19,7 @@
 package com.hchen.dexkitcache;
 
 import android.annotation.SuppressLint;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -75,6 +76,7 @@ public class DexkitCache {
     private static MMKV mmkv = null;
     private static Gson gson = null;
     private static DexKitBridge dexKitBridge = null;
+    private static boolean isAvailable = true;
 
     private DexkitCache() {
     }
@@ -131,34 +133,41 @@ public class DexkitCache {
 
         close();
         mmkvPath = dataDir + MMKV_PATH;
-        gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-        MMKV.initialize(mmkvPath, System::loadLibrary);
-        mmkv = MMKV.mmkvWithID(cacheName, MMKV.MULTI_PROCESS_MODE);
-        if (mmkv.containsKey(KEY_VERSION)) {
-            int version = mmkv.getInt(KEY_VERSION, 1);
-            if (version != DexkitCache.version) {
-                mmkv.clear();
-                mmkv.putInt(KEY_VERSION, DexkitCache.version);
-            }
-        } else mmkv.putInt(KEY_VERSION, DexkitCache.version);
+        try {
+            MMKV.initialize(mmkvPath, System::loadLibrary);
+        } catch (Throwable e) {
+            isAvailable = false;
+            Log.w(TAG, "[DexkitCache]: Failed to initialize MMKV, dexkit cache is unavailable!!", e);
+        }
+        if (isAvailable) {
+            gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+            mmkv = MMKV.mmkvWithID(cacheName, MMKV.MULTI_PROCESS_MODE);
+            if (mmkv.containsKey(KEY_VERSION)) {
+                int version = mmkv.getInt(KEY_VERSION, 1);
+                if (version != DexkitCache.version) {
+                    mmkv.clear();
+                    mmkv.putInt(KEY_VERSION, DexkitCache.version);
+                }
+            } else mmkv.putInt(KEY_VERSION, DexkitCache.version);
 
-        String packageInfo = PackageHelper.getPackageVersionName() + "(" + PackageHelper.getPackageVersionCode() + ")";
-        if (mmkv.containsKey(KEY_PACKAGE_INFO)) {
-            String oldInfo = mmkv.getString(KEY_PACKAGE_INFO, "unknown");
-            if (!Objects.equals(packageInfo, oldInfo)) {
-                mmkv.clear();
-                mmkv.putString(KEY_PACKAGE_INFO, packageInfo);
-            }
-        } else mmkv.putString(KEY_PACKAGE_INFO, packageInfo);
+            String packageInfo = PackageHelper.getPackageVersionName() + "(" + PackageHelper.getPackageVersionCode() + ")";
+            if (mmkv.containsKey(KEY_PACKAGE_INFO)) {
+                String oldInfo = mmkv.getString(KEY_PACKAGE_INFO, "unknown");
+                if (!Objects.equals(packageInfo, oldInfo)) {
+                    mmkv.clear();
+                    mmkv.putString(KEY_PACKAGE_INFO, packageInfo);
+                }
+            } else mmkv.putString(KEY_PACKAGE_INFO, packageInfo);
 
-        String systemVersion = SystemHelper.getSystemVersion("ro.system.build.version.incremental");
-        if (mmkv.containsKey(KEY_SYSTEM_VERSION)) {
-            String oldVersion = mmkv.getString(KEY_SYSTEM_VERSION, "unknown");
-            if (!Objects.equals(systemVersion, oldVersion)) {
-                mmkv.clear();
-                mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
-            }
-        } else mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
+            String systemVersion = SystemHelper.getSystemVersion("ro.system.build.version.incremental");
+            if (mmkv.containsKey(KEY_SYSTEM_VERSION)) {
+                String oldVersion = mmkv.getString(KEY_SYSTEM_VERSION, "unknown");
+                if (!Objects.equals(systemVersion, oldVersion)) {
+                    mmkv.clear();
+                    mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
+                }
+            } else mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
+        }
 
         System.loadLibrary("dexkit");
         dexKitBridge = DexKitBridge.create(classLoader, false);
@@ -191,6 +200,7 @@ public class DexkitCache {
     public static <T> T findMember(@Nullable String key, @NonNull ClassLoader classLoader, @NonNull IDexkit iDexkit) {
         autoReloadIfNeed(classLoader);
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
+        if (!isAvailable) key = null; // 缓存不可用
         if (key == null) {
             try {
                 BaseData baseData = iDexkit.dexkit(dexKitBridge);
@@ -275,6 +285,7 @@ public class DexkitCache {
     public static <T> T[] findMemberList(@Nullable String key, @NonNull ClassLoader classLoader, @NonNull IDexkitList iDexKitList) {
         autoReloadIfNeed(classLoader);
         DexKitBridge dexKitBridge = createDexkitBridge(classLoader);
+        if (!isAvailable) key = null; // 缓存不可用
         var ref = new Object() {
             volatile Class<?> type = null;
         };
@@ -387,10 +398,12 @@ public class DexkitCache {
             dexKitBridge.close();
         dexKitBridge = null;
 
-        if (mmkv != null)
-            mmkv.close();
-        mmkv = null;
-        gson = null;
+        if (isAvailable) {
+            if (mmkv != null)
+                mmkv.close();
+            mmkv = null;
+            gson = null;
+        }
     }
 
     private static void autoReloadIfNeed(@NonNull ClassLoader classLoader) {
