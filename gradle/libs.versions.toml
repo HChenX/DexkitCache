@@ -1,9 +1,9 @@
 [versions]
-agp = "8.10.0"
+agp = "8.13.0"
 annotation = "1.9.1"
-dexkit = "2.0.4"
-mmkv = "2.2.2"
-gson = "2.13.1"
+dexkit = "2.0.7"
+mmkv = "2.2.4"
+gson = "2.13.2"
 
 [libraries]
 annotation = { module = "androidx.annotation:annotation-jvm", version.ref = "annotation" }
@@ -14,4 +14,3 @@ mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }
 android-application = { id = "com.android.application", version.ref = "agp" }
-

@@ -25,10 +25,8 @@ import org.luckypray.dexkit.query.FindClass;
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.ClassMatcher;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
-import org.luckypray.dexkit.result.BaseDataList;
 import org.luckypray.dexkit.result.ClassData;
 import org.luckypray.dexkit.result.MethodDataList;
-import org.luckypray.dexkit.result.base.BaseData;
 
 import java.lang.reflect.Method;
 
@@ -46,24 +44,23 @@ final class TestExample {
     }
 
     public void use() {
-        Class<?> clazz = DexkitCache.findMember("test_key", new IDexkit() {
+        Class<?> clazz = DexkitCache.findMember("test_key", new IDexkit<ClassData>() {
             @NonNull
             @Override
-            public BaseData dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
-                ClassData classData = bridge.findClass(FindClass.create()
+            public ClassData dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
+                return bridge.findClass(FindClass.create()
                     .matcher(ClassMatcher.create()
                         .usingStrings("test class")
                     )
                 ).single();
-                return classData;
             }
         });
 
-        Method[] methods = DexkitCache.findMemberList("test_list_key", new IDexkitList() {
+        Method[] methods = DexkitCache.findMember("test_list_key", new IDexkit<MethodDataList>() {
             @NonNull
             @Override
-            public BaseDataList<?> dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
-                MethodDataList list = bridge.findMethod(FindMethod.create()
+            public MethodDataList dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
+                return bridge.findMethod(FindMethod.create()
                     .matcher(MethodMatcher.create()
                         .declaredClass(ClassMatcher.create()
                             .usingStrings("test class")
@@ -71,7 +68,6 @@ final class TestExample {
                         .usingStrings("test method")
                     )
                 );
-                return list;
             }
         });
     }

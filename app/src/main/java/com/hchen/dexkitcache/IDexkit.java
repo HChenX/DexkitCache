@@ -21,19 +21,18 @@ package com.hchen.dexkitcache;
 import androidx.annotation.NonNull;
 
 import org.luckypray.dexkit.DexKitBridge;
-import org.luckypray.dexkit.result.base.BaseData;
 
 /**
  * Dexkit 数据存储与解析接口
  *
  * @author 焕晨HChen
  */
-public interface IDexkit {
+public interface IDexkit<D> {
     /**
      * dexkit 查找
      *
      * @param bridge dexkit 实例
      */
     @NonNull
-    BaseData dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException;
+    D dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException;
 }
