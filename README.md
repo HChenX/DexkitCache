@@ -35,12 +35,12 @@ dependencyResolutionManagement {
 }
 
 dependencies {
-    implementation 'com.github.HChenX:DexkitCache:v.0.7' // 引入依赖
+    implementation 'com.github.HChenX:DexkitCache:v.0.8' // 引入依赖
 
     // 下列依赖的版本号仅是示例，请按照实际需求填写
-    implementation 'org.luckypray:dexkit:2.0.4' // dexkit
-    implementation 'com.tencent:mmkv:2.2.2' // 缓存储存工具
-    implementation 'com.google.code.gson:gson:2.13.1' // 缓存序列化与反序列化工具
+    implementation 'org.luckypray:dexkit:2.0.7' // dexkit
+    implementation 'com.tencent:mmkv:2.2.4' // 缓存储存工具
+    implementation 'com.google.code.gson:gson:2.13.2' // 缓存序列化与反序列化工具
 }
 ```
 
@@ -58,28 +58,27 @@ public class Test {
         ClassLoader classLoader = null; // 当前的 classloader，不要传 null，仅演示
         String sourceDir = null; // 软件 apk 目录
         String dataDir = null; // 软件数据目录
-        DexkitCache.init("test_cache_name", classLoader, sourceDir, dataDir); // 初始化工具
+        DexkitCache.init("test_cache", classLoader, sourceDir, dataDir); // 初始化工具
     }
 
-    public void use() {
-        Class<?> clazz = DexkitCache.findMember("test_key", new IDexkit() {
+    public void find() {
+        Class<?> clazz = DexkitCache.findMember("test_key", new IDexkit<ClassData>() {
             @NonNull
             @Override
-            public BaseData dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
-                ClassData classData = bridge.findClass(FindClass.create()
+            public ClassData dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
+                return bridge.findClass(FindClass.create()
                     .matcher(ClassMatcher.create()
                         .usingStrings("test class")
                     )
                 ).single();
-                return classData;
             }
         });
 
-        Method[] methods = DexkitCache.findMemberList("test_list_key", new IDexkitList() {
+        Method[] methods = DexkitCache.findMember("test_list_key", new IDexkit<MethodDataList>() {
             @NonNull
             @Override
-            public BaseDataList<?> dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
-                MethodDataList list = bridge.findMethod(FindMethod.create()
+            public MethodDataList dexkit(@NonNull DexKitBridge bridge) throws ReflectiveOperationException {
+                return bridge.findMethod(FindMethod.create()
                     .matcher(MethodMatcher.create()
                         .declaredClass(ClassMatcher.create()
                             .usingStrings("test class")
@@ -87,7 +86,6 @@ public class Test {
                         .usingStrings("test method")
                     )
                 );
-                return list;
             }
         });
     }

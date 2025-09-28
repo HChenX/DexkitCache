@@ -43,7 +43,7 @@ final class TestExample {
         DexkitCache.init("test_cache", classLoader, sourceDir, dataDir); // 初始化工具
     }
 
-    public void use() {
+    public void find() {
         Class<?> clazz = DexkitCache.findMember("test_key", new IDexkit<ClassData>() {
             @NonNull
             @Override
