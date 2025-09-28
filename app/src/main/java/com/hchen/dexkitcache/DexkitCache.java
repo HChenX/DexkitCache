@@ -58,9 +58,9 @@ import java.util.function.Function;
  * Dexkit 缓存构建与解析工具
  *
  * @author 焕晨HChen
- * @noinspection FieldCanBeLocal
+ * @noinspection FieldCanBeLocal, unused
  */
-public class DexkitCache {
+public final class DexkitCache {
     private static final String TAG = "DexkitCache";
     private static final String MMKV_PATH = "/files/hchen/dexkit_cache";
     private static final String KEY_VERSION = "version";
