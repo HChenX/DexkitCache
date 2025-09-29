@@ -35,7 +35,7 @@ dependencyResolutionManagement {
 }
 
 dependencies {
-    implementation 'com.github.HChenX:DexkitCache:v.0.8' // 引入依赖
+    implementation 'com.github.HChenX:DexkitCache:v.0.9' // 引入依赖
 
     // 下列依赖的版本号仅是示例，请按照实际需求填写
     implementation 'org.luckypray:dexkit:2.0.7' // dexkit
@@ -59,6 +59,17 @@ public class Test {
         String sourceDir = null; // 软件 apk 目录
         String dataDir = null; // 软件数据目录
         DexkitCache.init("test_cache", classLoader, sourceDir, dataDir); // 初始化工具
+        DexkitCache.setInitializationListener(new IInitialization() {
+            @Override
+            public void initialization(MMKV mmkv) {
+                if (mmkv.containsKey("custom_key")) {
+                    if (!TextUtils.equals("new_key", mmkv.getString("custom_key", "unknown"))) {
+                        mmkv.clear();
+                        mmkv.putString("custom_key", "new_key");
+                    }
+                } else mmkv.putString("custom_key", "new_key");
+            }
+        });
     }
 
     public void find() {

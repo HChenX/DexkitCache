@@ -62,49 +62,52 @@ import java.util.function.Function;
  */
 public final class DexkitCache {
     private static final String TAG = "DexkitCache";
-    private static final String MMKV_PATH = "/files/hchen/dexkit_cache";
     private static final String KEY_VERSION = "version";
     private static final String KEY_PACKAGE_INFO = "package_info";
     private static final String KEY_SYSTEM_VERSION = "system_version";
     private static final String TYPE_METHOD = "METHOD";
     private static final String TYPE_CLASS = "CLASS";
     private static final String TYPE_FIELD = "FIELD";
-    private static String cacheName = "dexkit_cache";
+    private static String mmkvPath = "/files/hchen/dexkit_cache";
+    private static String cacheName;
     private static int version = 1;
     private static ClassLoader classLoader;
     private static String sourceDir = null;
     private static String dataDir = null;
-    private static String mmkvPath = null;
+    private static String mmkvFinalPath = null;
     private static MMKV mmkv = null;
     private static Gson gson = null;
     private static DexKitBridge dexKitBridge = null;
+    private static IInitialization iInitialization = null;
     private static boolean isAvailable = true;
 
     private DexkitCache() {
     }
 
-    /**
-     * 初始化 Dexkit 缓存工具
-     *
-     * @param cacheName   缓存文件名称
-     * @param classLoader 类加载器
-     * @param sourceDir   apk 路径
-     * @param dataDir     apk 数据目录
-     */
     public static void init(@NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir) {
-        init(cacheName, classLoader, sourceDir, dataDir, 1);
+        init("/files/hchen/dexkit_cache", cacheName, classLoader, sourceDir, dataDir, 1);
+    }
+
+    public static void init(@NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir, int version) {
+        init("/files/hchen/dexkit_cache", cacheName, classLoader, sourceDir, dataDir, version);
+    }
+
+    public static void init(@NonNull String cachePath, @NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir) {
+        init(cachePath, cacheName, classLoader, sourceDir, dataDir, 1);
     }
 
     /**
      * 初始化 Dexkit 缓存工具
      *
+     * @param cachePath   缓存目录
      * @param cacheName   缓存文件名称
      * @param classLoader 类加载器
      * @param sourceDir   apk 路径
      * @param dataDir     apk 数据目录
      * @param version     当前使用的缓存版本，请注意不同版本会导致所有缓存被删除
      */
-    public static void init(@NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir, int version) {
+    public static void init(@NonNull String cachePath, @NonNull String cacheName, @NonNull ClassLoader classLoader, @NonNull String sourceDir, @NonNull String dataDir, int version) {
+        DexkitCache.mmkvPath = cachePath;
         DexkitCache.cacheName = cacheName;
         DexkitCache.classLoader = classLoader;
         DexkitCache.sourceDir = sourceDir;
@@ -118,6 +121,13 @@ public final class DexkitCache {
     public static void setClassLoader(@NonNull ClassLoader classLoader) {
         DexkitCache.classLoader = classLoader;
         autoReloadIfNeed(classLoader);
+    }
+
+    /**
+     * 在 MMKV 初始化时回调
+     * */
+    public static void setInitializationListener(IInitialization iInitialization) {
+        DexkitCache.iInitialization = iInitialization;
     }
 
     @NonNull
@@ -134,9 +144,9 @@ public final class DexkitCache {
         }
 
         close();
-        mmkvPath = dataDir + MMKV_PATH;
+        mmkvFinalPath = dataDir + mmkvPath;
         try {
-            MMKV.initialize(mmkvPath, System::loadLibrary);
+            MMKV.initialize(mmkvFinalPath, System::loadLibrary);
         } catch (Throwable e) {
             isAvailable = false;
             Log.w(TAG, "[DexkitCache]: Failed to initialize MMKV, dexkit cache is unavailable!!", e);
@@ -169,6 +179,9 @@ public final class DexkitCache {
                     mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
                 }
             } else mmkv.putString(KEY_SYSTEM_VERSION, systemVersion);
+
+            if (iInitialization != null)
+                iInitialization.initialization(mmkv);
         }
 
         System.loadLibrary("dexkit");
