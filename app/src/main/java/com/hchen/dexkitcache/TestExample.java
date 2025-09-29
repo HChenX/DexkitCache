@@ -47,7 +47,7 @@ final class TestExample {
         DexkitCache.init("test_cache", classLoader, sourceDir, dataDir); // 初始化工具
         DexkitCache.setInitializationListener(new IInitialization() {
             @Override
-            public void initialization(MMKV mmkv) {
+            public void initialization(@NonNull MMKV mmkv) {
                 if (mmkv.containsKey("custom_key")) {
                     if (!TextUtils.equals("new_key", mmkv.getString("custom_key", "unknown"))) {
                         mmkv.clear();

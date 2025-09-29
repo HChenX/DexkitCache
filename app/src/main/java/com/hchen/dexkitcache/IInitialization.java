@@ -18,6 +18,8 @@
  */
 package com.hchen.dexkitcache;
 
+import androidx.annotation.NonNull;
+
 import com.tencent.mmkv.MMKV;
 
 /**
@@ -29,5 +31,5 @@ public interface IInitialization {
     /**
      * 初始化 MMKV
      * */
-    void initialization(MMKV mmkv);
+    void initialization(@NonNull MMKV mmkv);
 }
